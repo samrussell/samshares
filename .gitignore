@@ -1,2 +1,4 @@
 *.pdf
 pdfdetails.txt
+testoutput.txt
+testoutput*.txt
