@@ -69,3 +69,6 @@ TJ example
 [[u'C', -19, u'o', -13, u's', -34, u't ', -28, u'o', -10, u'f ', -28, u'g', -16, u'o', -18, u'o', -22, u'd', -20, u's ', -28, u's', -22, u'o', -14, u'l', -16, u'd']] <TJ>
 
 
+Now have a good feel of where this renders, not sure of how much space it takes up (may not need to know?)
+
+Need some way to visualise this to sanity check, and then find ways to draw rectangles and build a spreadsheet out of this
