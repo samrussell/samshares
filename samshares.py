@@ -29,26 +29,47 @@ page = pdf.getPage(int(num))
 
 # Let's write functions to parse Tj and TJ
 
-def parsePDFLine(operator, operands):
+def parsePDFLine(operator, operands, location):
   if operator=='Tj':
     bigstring = ''.join(operands)
-    return "String \"%s\" <%s>" % (unicode(bigstring).encode('ascii',errors='backslashreplace'), operator)
+    toreturn = "String \"%s\" <%s>" % (unicode(bigstring).encode('ascii',errors='backslashreplace'), operator)
   elif operator=='TJ':
     # pattern is char spacing char spacing
     # ignore spacing
     #pprint.pprint(operands)
     bigstring = ''.join(operands[0][::2])
     #bigstring = ''.join(operands[::2])
-    return "String \"%s\" <%s>" % (unicode(bigstring).encode('ascii',errors='backslashreplace'), operator)
-  return "%s <%s>" % (unicode(operands).encode('ascii',errors='backslashreplace'), operator)
+    toreturn = "String (%d, %d)  \"%s\" <%s>" % (location[0], location[1], unicode(bigstring).encode('ascii',errors='backslashreplace'), operator)
+  elif operator=='BT':
+    # reset location
+    location = [0,0]
+    toreturn = "Begin text"
+  elif operator=='ET':
+    toreturn = "End text"
+  elif operator=='Tm':
+    # 6 fields in array
+    # x = a*x + c*y + e
+    # x = b*x + d*y + f
+    newlocation = []
+    newlocation.append(location[0]*operands[0] + location[1]*operands[2] + operands[4])
+    newlocation.append(location[0]*operands[1] + location[1]*operands[3] + operands[5])
+    location = newlocation
+    toreturn = "New location: (%d, %d) <%s>" % (location[0], location[1], operator)
+  else:
+    toreturn = "%s <%s>" % (unicode(operands).encode('ascii',errors='backslashreplace'), operator)
+  
+  return (toreturn, location)
 
 content = page["/Contents"].getObject()
 if not isinstance(content, PyPDF2.pdf.ContentStream):
     content = PyPDF2.pdf.ContentStream(content, page.pdf)
 
+location = [0,0]
+
 for operands,operator in content.operations:
   # let's find out how the Tj TJ T* operators work...
-  print parsePDFLine(operator, operands)
+  (toprint, location) = parsePDFLine(operator, operands, location)
+  print toprint
   #print unicode(operands).encode('ascii',errors='backslashreplace'),
   #print ("<%s>" % operator)
 
