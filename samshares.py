@@ -68,16 +68,32 @@ if not isinstance(content, PyPDF2.pdf.ContentStream):
 baselocation = [0,0]
 location = [0,0]
 
+# make framestrings look like this:
+# [
+#   ['string1', x1, y1],
+#   ['string2', x2, y2],
+# ]
+
+framestrings = []
+
 for operands,operator in content.operations:
   # let's find out how the Tj TJ T* operators work...
   if operator=='Tj':
     bigstring = ''.join(operands)
+    # add to framestrings
+    framestrings.append([bigstring, location[0], location[1]])
+    # increase location[0] by length of string
+    location[0] += len(bigstring)*10
     toprint = "String (%d, %d) \"%s\" <%s>" % (location[0], location[1], unicode(bigstring).encode('ascii',errors='backslashreplace'), operator)
   elif operator=='TJ':
     # pattern is char spacing char spacing
     # ignore spacing
     #pprint.pprint(operands)
     bigstring = ''.join(operands[0][::2])
+    # add to framestrings
+    framestrings.append([bigstring, location[0], location[1]])
+    # increase location[0] by length of string
+    location[0] += len(bigstring)*10
     #bigstring = ''.join(operands[::2])
     toprint = "String (%d, %d) \"%s\" <%s>" % (location[0], location[1], unicode(bigstring).encode('ascii',errors='backslashreplace'), operator)
   elif operator=='BT':
@@ -91,12 +107,28 @@ for operands,operator in content.operations:
     # 6 fields in array
     # x = a*x + c*y + e
     # x = b*x + d*y + f
-    newlocation = []
-    newlocation.append(location[0]*operands[0] + location[1]*operands[2] + operands[4])
-    newlocation.append(location[0]*operands[1] + location[1]*operands[3] + operands[5])
+    #newlocation = []
+    #newlocation.append(location[0]*operands[0] + location[1]*operands[2] + operands[4])
+    #newlocation.append(location[0]*operands[1] + location[1]*operands[3] + operands[5])
+    # cheat and just use operands[4] and operands[5]
+    newlocation = [operands[4], operands[5]]
     baselocation = newlocation
     location = newlocation
     toprint = "New location: (%d, %d) <%s>" % (location[0], location[1], operator)
+  elif operator=='Td':
+    # cheat
+    location[0] += operands[0]
+    location[1] += operands[1]
+    baselocation = location
+    toprint = "New location: (%d, %d) <%s>" % (location[0], location[1], operator)
+  elif operator=='TD':
+    # cheat
+    # should set line operator (TL -operands[1])
+    location[0] += operands[0]
+    location[1] += operands[1]
+    baselocation = location
+    toprint = "New location: (%d, %d) <%s>" % (location[0], location[1], operator)
+  
   # need to still do Tc, Tw, Td
   # Td = move to next line with stuff (5.3.1)
   # Tc = charSpace, Tw = wordSpace (5.2.1)
@@ -114,3 +146,26 @@ for operands,operator in content.operations:
 
 #page = pdf2.getPage(3)
 #print page.extractText().encode('ascii',errors='backslashreplace')
+
+# create a window to draw where text should go on the page
+
+import wx
+
+class Frame(wx.Frame):
+  def __init__(self, title, framestrings):
+    wx.Frame.__init__(self, None, title=title, pos=(150,150), size=(800,800))
+    
+    panel = wx.Panel(self, -1)
+    font = wx.Font(10, wx.ROMAN, wx.NORMAL, wx.NORMAL)
+    for fs in framestrings:
+      textout = wx.StaticText(panel, -1, fs[0],(fs[1], fs[2]*-1 + 800), style=wx.ALIGN_CENTRE)
+
+app = wx.App()
+
+frame = Frame('test frame', framestrings)
+frame.Show()
+
+app.MainLoop()
+
+#pprint.pprint(framestrings)
+
