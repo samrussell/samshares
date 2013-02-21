@@ -52,7 +52,7 @@ for operands,operator in content.operations:
     framestrings.append([bigstring, location[0], location[1]])
     # increase location[0] by length of string
     toprint = "String (%d, %d) \"%s\" <%s>" % (location[0], location[1], unicode(bigstring).encode('ascii',errors='backslashreplace'), operator)
-    location[0] += len(bigstring)*24
+    location[0] += len(bigstring)*16
   elif operator=='TJ':
     # pattern is char spacing char spacing
     # ignore spacing
@@ -63,7 +63,7 @@ for operands,operator in content.operations:
     # increase location[0] by length of string
     #bigstring = ''.join(operands[::2])
     toprint = "String (%d, %d) \"%s\" <%s>" % (location[0], location[1], unicode(bigstring).encode('ascii',errors='backslashreplace'), operator)
-    location[0] += len(bigstring)*24
+    location[0] += len(bigstring)*16
   elif operator=='BT':
     # reset location
     baselocation = [0,0]
@@ -79,14 +79,14 @@ for operands,operator in content.operations:
     #newlocation.append(location[0]*operands[0] + location[1]*operands[2] + operands[4])
     #newlocation.append(location[0]*operands[1] + location[1]*operands[3] + operands[5])
     # cheat and just use operands[4] and operands[5]
-    newlocation = [operands[4], operands[5]]
+    newlocation = [operands[4], operands[5]*2]
     baselocation[0] = newlocation[0]
     baselocation[1] = newlocation[1]
     location = newlocation
     toprint = "New location: (%d, %d) <%s>" % (location[0], location[1], operator)
   elif operator=='Td':
     # cheat
-    baselocation[0] += operands[0]
+    baselocation[0] += operands[0]*12
     baselocation[1] += operands[1]
     location[0] = baselocation[0]
     location[1] = baselocation[1]
@@ -94,7 +94,7 @@ for operands,operator in content.operations:
   elif operator=='TD':
     # cheat
     # should set line operator (TL -operands[1])
-    baselocation[0] += operands[0]
+    baselocation[0] += operands[0]*12
     baselocation[1] += operands[1]
     location[0] = baselocation[0]
     location[1] = baselocation[1]
@@ -130,7 +130,7 @@ class Frame(wx.Frame):
     panel = wx.Panel(self, -1)
     font = wx.Font(10, wx.ROMAN, wx.NORMAL, wx.NORMAL)
     for fs in framestrings:
-      textout = wx.StaticText(panel, -1, fs[0],(fs[1], fs[2]*-1 + 800), style=wx.ALIGN_CENTRE)
+      textout = wx.StaticText(panel, -1, fs[0],(fs[1], fs[2]*-1 + 1600), style=wx.ALIGN_CENTRE)
 
 app = wx.App()
 
