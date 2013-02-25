@@ -6,6 +6,8 @@
 
 import re
 import pprint
+from numpy import matrix
+import copy
 
 import sys
 import os.path
@@ -33,8 +35,32 @@ content = page["/Contents"].getObject()
 if not isinstance(content, PyPDF2.pdf.ContentStream):
     content = PyPDF2.pdf.ContentStream(content, page.pdf)
 
-baselocation = [0,0]
-location = [0,0]
+#baselocation = [0,0]
+#location = [0,0]
+
+# text stuff SUCKS
+# so here's the deal:
+# we have two matrices - the text matrix, and the line matrix
+# the line matrix is where we fall back to on new-line commands
+# the text matrix is where text is currently rendered to
+#
+# the units used are "text units" - 1/72 x 1/72 inch
+# the "point" used for fonts is a multiple of this
+# so 12-point font should be scaled 12 times - a "standard glyph"
+# should be 1/6 x 1/6 inches big
+# IMPORTANT - the positioning is not related to the font
+# but we need this to find out how wide the words are
+#
+# Affine transforms are done with 1x3 instead of 3x1 matrices for the
+# co-ordinates, so (x,y) is represented as [x,y,1], multiplied by
+# the text matrix (from the left: coords * tm), giving the coords as
+# [x', y', 1]
+
+identity3_3 = matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+initialcoord1_3 = matrix([[1,1,1]])
+textmatrix = matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+textlinematrix = matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+leadingparameter = 0
 
 # make framestrings look like this:
 # [
@@ -48,26 +74,30 @@ for operands,operator in content.operations:
   # let's find out how the Tj TJ T* operators work...
   if operator=='Tj':
     bigstring = ''.join(operands)
+    coords = initialcoord1_3 * textmatrix
     # add to framestrings
-    framestrings.append([bigstring, location[0], location[1]])
+    framestrings.append([bigstring, coords.item(0), coords.item(1)])
     # increase location[0] by length of string
-    toprint = "String (%d, %d) \"%s\" <%s>" % (location[0], location[1], unicode(bigstring).encode('ascii',errors='backslashreplace'), operator)
-    location[0] += len(bigstring)*16
+    toprint = "String (%d, %d) \"%s\" <%s>" % (coords.item(0), coords.item(1), unicode(bigstring).encode('ascii',errors='backslashreplace'), operator)
+    addwidth = matrix([[0,0,0], [0,0,0], [len(bigstring)*16,0,0]])
+    textmatrix += addwidth
   elif operator=='TJ':
     # pattern is char spacing char spacing
     # ignore spacing
     #pprint.pprint(operands)
     bigstring = ''.join(operands[0][::2])
+    coords = initialcoord1_3 * textmatrix
     # add to framestrings
-    framestrings.append([bigstring, location[0], location[1]])
+    framestrings.append([bigstring, coords.item(0), coords.item(1)])
     # increase location[0] by length of string
     #bigstring = ''.join(operands[::2])
-    toprint = "String (%d, %d) \"%s\" <%s>" % (location[0], location[1], unicode(bigstring).encode('ascii',errors='backslashreplace'), operator)
-    location[0] += len(bigstring)*16
+    toprint = "String (%d, %d) \"%s\" <%s>" % (coords.item(0), coords.item(1), unicode(bigstring).encode('ascii',errors='backslashreplace'), operator)
+    addwidth = matrix([[0,0,0], [0,0,0], [len(bigstring)*16,0,0]])
+    textmatrix += addwidth
   elif operator=='BT':
     # reset location
-    baselocation = [0,0]
-    location = [0,0]
+    textmatrix = matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    textlinematrix = matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
     toprint = "Begin text"
   elif operator=='ET':
     toprint = "End text"
@@ -79,30 +109,39 @@ for operands,operator in content.operations:
     #newlocation.append(location[0]*operands[0] + location[1]*operands[2] + operands[4])
     #newlocation.append(location[0]*operands[1] + location[1]*operands[3] + operands[5])
     # cheat and just use operands[4] and operands[5]
-    newlocation = [operands[4], operands[5]*2]
-    baselocation[0] = newlocation[0]
-    baselocation[1] = newlocation[1]
-    location = newlocation
-    toprint = "New location: (%d, %d) <%s>" % (location[0], location[1], operator)
+    #newlocation = [operands[4], operands[5]*2]
+    #baselocation[0] = newlocation[0]
+    #baselocation[1] = newlocation[1]
+    textmatrix = matrix([[operands[0], operands[1], 0], [operands[2], operands[3], 0], [operands[4], operands[5], 1]])
+    textlinematrix = matrix([[operands[0], operands[1], 0], [operands[2], operands[3], 0], [operands[4], operands[5], 1]])
+    #location = newlocation
+    coords = initialcoord1_3 * textmatrix
+    toprint = "New location: (%d, %d) <%s>" % (coords.item(0), coords.item(1), operator)
   elif operator=='Td':
     # cheat
-    baselocation[0] += operands[0]*12
-    baselocation[1] += operands[1]
-    location[0] = baselocation[0]
-    location[1] = baselocation[1]
-    toprint = "New location %d %d: (%d, %d) <%s>" % (operands[0], operands[1], location[0], location[1], operator)
+    #baselocation[0] += operands[0]*12
+    #baselocation[1] += operands[1]
+    #location[0] = baselocation[0]
+    #location[1] = baselocation[1]
+    translationmatrix = matrix([[1, 0, 0], [0, 1, 0], [operands[0], operands[1], 1]])
+    textlinematrix = translationmatrix * textlinematrix
+    textmatrix = identity3_3 * textlinematrix
+    toprint = "New location %d %d: <%s>" % (coords.item(0), coords.item(1), operator)
   elif operator=='TD':
     # cheat
     # should set line operator (TL -operands[1])
-    baselocation[0] += operands[0]*12
-    baselocation[1] += operands[1]
-    location[0] = baselocation[0]
-    location[1] = baselocation[1]
-    toprint = "New location %d %d: (%d, %d) <%s>" % (operands[0], operands[1], location[0], location[1], operator)
+    #baselocation[0] += operands[0]*12
+    #baselocation[1] += operands[1]
+    #location[0] = baselocation[0]
+    #location[1] = baselocation[1]
+    translationmatrix = matrix([[1, 0, 0], [0, 1, 0], [operands[0], operands[1], 1]])
+    textlinematrix = translationmatrix * textlinematrix
+    textmatrix = identity3_3 * textlinematrix
+    toprint = "New location %d %d: <%s>" % (coords.item(0), coords.item(1), operator)
   elif operator=='T*':
-    location[0] = baselocation[0]
-    # make up a y value
-    location[1] += 24
+    addheight = matrix([[0,0,0], [0,0,0], [0,24,0]])
+    textlinematrix += addheight
+    textmatrix = translationmatrix * textlinematrix
   # need to still do Tc, Tw, Td
   # Td = move to next line with stuff (5.3.1)
   # Tc = charSpace, Tw = wordSpace (5.2.1)
@@ -130,7 +169,7 @@ class Frame(wx.Frame):
     panel = wx.Panel(self, -1)
     font = wx.Font(10, wx.ROMAN, wx.NORMAL, wx.NORMAL)
     for fs in framestrings:
-      textout = wx.StaticText(panel, -1, fs[0],(fs[1], fs[2]*-1 + 1600), style=wx.ALIGN_CENTRE)
+      textout = wx.StaticText(panel, -1, fs[0],(fs[1], fs[2]*-1 + 800), style=wx.ALIGN_CENTRE)
 
 app = wx.App()
 
