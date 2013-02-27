@@ -79,6 +79,7 @@ for operands,operator in content.operations:
     framestrings.append([bigstring, coords.item(0), coords.item(1)])
     # increase location[0] by length of string
     toprint = "String (%d, %d) \"%s\" <%s>" % (coords.item(0), coords.item(1), unicode(bigstring).encode('ascii',errors='backslashreplace'), operator)
+    print "(%d,%d) %s" % (coords.item(0), coords.item(1), unicode(bigstring).encode('ascii',errors='backslashreplace'))
     addwidth = matrix([[0,0,0], [0,0,0], [len(bigstring)*16,0,0]])
     textmatrix += addwidth
   elif operator=='TJ':
@@ -92,6 +93,7 @@ for operands,operator in content.operations:
     # increase location[0] by length of string
     #bigstring = ''.join(operands[::2])
     toprint = "String (%d, %d) \"%s\" <%s>" % (coords.item(0), coords.item(1), unicode(bigstring).encode('ascii',errors='backslashreplace'), operator)
+    print "(%d,%d) %s" % (coords.item(0), coords.item(1), unicode(bigstring).encode('ascii',errors='backslashreplace'))
     addwidth = matrix([[0,0,0], [0,0,0], [len(bigstring)*16,0,0]])
     textmatrix += addwidth
   elif operator=='BT':
@@ -147,7 +149,7 @@ for operands,operator in content.operations:
   # Tc = charSpace, Tw = wordSpace (5.2.1)
   else:
     toprint = "%s <%s>" % (unicode(operands).encode('ascii',errors='backslashreplace'), operator)
-  print toprint
+  #print toprint
   #print unicode(operands).encode('ascii',errors='backslashreplace'),
   #print ("<%s>" % operator)
 
@@ -169,7 +171,8 @@ class Frame(wx.Frame):
     panel = wx.Panel(self, -1)
     font = wx.Font(10, wx.ROMAN, wx.NORMAL, wx.NORMAL)
     for fs in framestrings:
-      textout = wx.StaticText(panel, -1, fs[0],(fs[1], fs[2]*-1 + 800), style=wx.ALIGN_CENTRE)
+      #textout = wx.StaticText(panel, -1, fs[0],(fs[1], fs[2]*-1 + 800), style=wx.ALIGN_CENTRE)
+      textout = wx.StaticText(panel, -1, "X",(fs[1], fs[2]*-1 + 800), style=wx.ALIGN_CENTRE)
 
 app = wx.App()
 
